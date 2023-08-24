@@ -85,7 +85,7 @@ func main() {
 		}
 
 		addressName := cusineFieldMap["address_name"].(string)
-		// categoryName := cusineFieldMap["category_name"].(string)
+		categoryName := cusineFieldMap["category_name"].(string)
 		id := cusineFieldMap["id"].(string)
 		phone := cusineFieldMap["phone"].(string)
 		placeName := cusineFieldMap["place_name"].(string)
@@ -98,7 +98,7 @@ func main() {
 		sheet.Update(index, 8, addressName)
 		sheet.Update(index, 9, id)
 		sheet.Update(index, 10, phone)
-		sheet.Update(index, 11, placeName)
+		sheet.Update(index, 11, categoryName)
 		sheet.Update(index, 12, placeUrl)
 		sheet.Update(index, 13, roadAddressName)
 		sheet.Update(index, 14, x)
@@ -106,7 +106,7 @@ func main() {
 	}
 	err = sheet.Synchronize()
 	if err != nil {
-		log.Printf("keyword (%v): failed to sync sheet\n")
+		log.Printf("keyword (%v): failed to sync sheet\n", err)
 	}
 }
 
