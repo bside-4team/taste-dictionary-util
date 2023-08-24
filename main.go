@@ -29,6 +29,14 @@ func main() {
 	}
 
 	conf := makeConfig()
+
+	// TODO: login google account
+	// Init google sheet service
+	// Iterate sheet data
+	// concatenate 지역 (A# ~), 도시명 (B# ~) 포털검색명 (F# ~)
+	// call searchCusineByKeyWord
+	// update sheet data H# (latitude), #I (longitude)
+
 	keyword := "강남구 구찌라꾸"
 	cusines, err := searchCusineByKeyWord(conf, keyword)
 
