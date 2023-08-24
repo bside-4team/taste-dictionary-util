@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"time"
 
 	"github.com/joho/godotenv"
 	"golang.org/x/oauth2/google"
@@ -86,7 +85,7 @@ func main() {
 		}
 
 		addressName := cusineFieldMap["address_name"].(string)
-		categoryName := cusineFieldMap["category_name"].(string)
+		// categoryName := cusineFieldMap["category_name"].(string)
 		id := cusineFieldMap["id"].(string)
 		phone := cusineFieldMap["phone"].(string)
 		placeName := cusineFieldMap["place_name"].(string)
@@ -97,21 +96,17 @@ func main() {
 
 		sheet.Update(index, 7, placeName)
 		sheet.Update(index, 8, addressName)
-		sheet.Update(index, 9, categoryName)
-		sheet.Update(index, 10, id)
-		sheet.Update(index, 11, phone)
-		sheet.Update(index, 12, placeName)
-		sheet.Update(index, 13, placeUrl)
-		sheet.Update(index, 14, roadAddressName)
-		sheet.Update(index, 15, x)
-		sheet.Update(index, 16, y)
-
-		err = sheet.Synchronize()
-		if err != nil {
-			log.Printf("keyword (%v): failed to sync sheet\n", keyword)
-		}
-		time.Sleep(1000)
-
+		sheet.Update(index, 9, id)
+		sheet.Update(index, 10, phone)
+		sheet.Update(index, 11, placeName)
+		sheet.Update(index, 12, placeUrl)
+		sheet.Update(index, 13, roadAddressName)
+		sheet.Update(index, 14, x)
+		sheet.Update(index, 15, y)
+	}
+	err = sheet.Synchronize()
+	if err != nil {
+		log.Printf("keyword (%v): failed to sync sheet\n")
 	}
 }
 
