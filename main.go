@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -8,19 +10,28 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"time"
 
 	"github.com/joho/godotenv"
+	"golang.org/x/oauth2/google"
+	"gopkg.in/Iwark/spreadsheet.v2"
 )
 
 type config struct {
-	kakaoAPIKey string
+	kakaoAPIKey  string
+	googleAPIKey string
 }
 
 func makeConfig() *config {
 	return &config{
-		kakaoAPIKey: os.Getenv("KAKAO_API_KEY"),
+		kakaoAPIKey:  os.Getenv("KAKAO_API_KEY"),
+		googleAPIKey: os.Getenv("GOOGLE_API_KEY"),
 	}
 }
+
+var (
+	sheetId = "1PfboVci0tyuw-JdoL6v1hoCVL2eoim2nkeZDm5fjX3Y"
+)
 
 func main() {
 	err := godotenv.Load()
@@ -29,23 +40,79 @@ func main() {
 	}
 
 	conf := makeConfig()
-
-	// TODO: login google account
-	// Init google sheet service
-	// Iterate sheet data
-	// concatenate 지역 (A# ~), 도시명 (B# ~) 포털검색명 (F# ~)
-	// call searchCusineByKeyWord
-	// update sheet data H# (latitude), #I (longitude)
-
-	keyword := "강남구 구찌라꾸"
-	cusines, err := searchCusineByKeyWord(conf, keyword)
-
+	credBytes, err := base64.StdEncoding.DecodeString(conf.googleAPIKey)
 	if err != nil {
-		log.Fatalf("failed to search cusine by keyword")
-		os.Exit(1)
+		log.Fatalf("failed to decode google service account key")
 	}
 
-	fmt.Println(cusines)
+	gConfig, err := google.JWTConfigFromJSON(credBytes, "https://www.googleapis.com/auth/spreadsheets")
+	if err != nil {
+		log.Fatalf("err: %v", err)
+	}
+
+	client := gConfig.Client(context.TODO())
+	service := spreadsheet.NewServiceWithClient(client)
+	spreadsheet, err := service.FetchSpreadsheet(sheetId)
+
+	if err != nil {
+		log.Fatalf("failed to fetch spreadsheet")
+	}
+
+	sheet, err := spreadsheet.SheetByIndex(0)
+	if err != nil {
+		log.Fatal("failed to init google sheet service")
+	}
+
+	index := -1
+	for _, row := range sheet.Rows {
+		keyword := fmt.Sprintf("%s %s %s", row[0].Value, row[1].Value, row[4].Value)
+		index++
+		cusines, err := searchCusineByKeyWord(conf, keyword)
+		if err != nil {
+			log.Printf("keyword: %v, something goes wrong with kakao search api\n", keyword)
+			continue
+		}
+
+		if len(cusines) == 0 {
+			log.Printf("keyword: %v, no result\n", keyword)
+			continue
+		}
+
+		cusine := cusines[0]
+		cusineFieldMap, ok := cusine.(map[string]interface{})
+		if !ok {
+			fmt.Println("Error: Invalid document format")
+			continue
+		}
+
+		addressName := cusineFieldMap["address_name"].(string)
+		categoryName := cusineFieldMap["category_name"].(string)
+		id := cusineFieldMap["id"].(string)
+		phone := cusineFieldMap["phone"].(string)
+		placeName := cusineFieldMap["place_name"].(string)
+		placeUrl := cusineFieldMap["place_url"].(string)
+		roadAddressName := cusineFieldMap["road_address_name"].(string)
+		x := cusineFieldMap["x"].(string)
+		y := cusineFieldMap["y"].(string)
+
+		sheet.Update(index, 7, placeName)
+		sheet.Update(index, 8, addressName)
+		sheet.Update(index, 9, categoryName)
+		sheet.Update(index, 10, id)
+		sheet.Update(index, 11, phone)
+		sheet.Update(index, 12, placeName)
+		sheet.Update(index, 13, placeUrl)
+		sheet.Update(index, 14, roadAddressName)
+		sheet.Update(index, 15, x)
+		sheet.Update(index, 16, y)
+
+		err = sheet.Synchronize()
+		if err != nil {
+			log.Printf("keyword (%v): failed to sync sheet\n", keyword)
+		}
+		time.Sleep(1000)
+
+	}
 }
 
 func searchCusineByKeyWord(conf *config, keyword string) ([]interface{}, error) {
@@ -77,7 +144,7 @@ func searchCusineByKeyWord(conf *config, keyword string) ([]interface{}, error) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to decoding JSON")
 	}
-	cusines := result["documents"].([]interface{})
 
+	cusines := result["documents"].([]interface{})
 	return cusines, nil
 }
