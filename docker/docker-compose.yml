@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  taste-dict-rds:
+    image: postgis/postgis
+    restart: always
+    container_name: 'taste-dict-rds'
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=taste
+    networks:
+      - taste_dict_network
+volumes:
+  taste-dict-rds:
+    driver: local
+networks:
+  taste_dict_network:
