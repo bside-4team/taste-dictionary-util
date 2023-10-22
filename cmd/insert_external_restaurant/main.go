@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -10,54 +9,14 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"os"
 	"time"
 
+	"github.com/Taehoya/go-utils/pq"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	"golang.org/x/oauth2/google"
 	"gopkg.in/Iwark/spreadsheet.v2"
 )
-
-type config struct {
-	kakaoAPIKey  string
-	googleAPIKey string
-	dbHost       string
-	dbPort       string
-	dbUser       string
-	dbPassword   string
-	dbName       string
-}
-
-func makeConfig() *config {
-	return &config{
-		kakaoAPIKey:  os.Getenv("KAKAO_API_KEY"),
-		googleAPIKey: os.Getenv("GOOGLE_API_KEY"),
-		dbHost:       os.Getenv("DB_HOST"),
-		dbPort:       os.Getenv("DB_PORT"),
-		dbUser:       os.Getenv("DB_USER"),
-		dbPassword:   os.Getenv("DB_PASSWORD"),
-		dbName:       os.Getenv("DB_NAME"),
-	}
-}
-
-func InitDB(conf *config) (*sql.DB, error) {
-	psqlInfo := fmt.Sprintf("host=%s port=%s user=%s "+
-		"password=%s dbname=%s sslmode=disable",
-		conf.dbHost, conf.dbPort, conf.dbUser, conf.dbPassword, conf.dbName)
-
-	db, err := sql.Open("postgres", psqlInfo)
-	if err != nil {
-		return nil, fmt.Errorf("failed to init db")
-	}
-
-	err = db.Ping()
-	if err != nil {
-		return nil, fmt.Errorf("database is not healthy")
-	}
-
-	return db, nil
-}
 
 var (
 	sheetId = "1PfboVci0tyuw-JdoL6v1hoCVL2eoim2nkeZDm5fjX3Y"
@@ -69,8 +28,8 @@ func main() {
 		log.Fatalf("failed to loading .env file")
 	}
 
-	conf := makeConfig()
-	db, err := InitDB(conf)
+	conf := MakeConfig()
+	db, err := pq.InitDB()
 
 	if err != nil {
 		log.Fatalf("err: %v", err)
@@ -102,9 +61,9 @@ func main() {
 
 	index := -1
 	for _, row := range sheet.Rows {
-		keyword := fmt.Sprintf("%s %s %s", row[0].Value, row[1].Value, row[4].Value)
+		keyword := fmt.Sprintf("%s %s %s", row[0].Value, row[1].Value, row[2].Value)
 		index++
-		cusines, err := searchCusineByKeyWord(conf, keyword)
+		cusines, err := SearchCusineByKeyWord(conf, keyword)
 		if err != nil {
 			log.Printf("keyword: %v, something goes wrong with kakao search api\n", keyword)
 			continue
@@ -130,14 +89,12 @@ func main() {
 		currentTime := time.Now()
 
 		stmt := `
-	    	INSERT INTO
-				public.external_restaurant_informations
-	    		(external_uuid, "location", reference_link, updated_at, name)
-	    	VALUES
-				($1, ST_GeomFromText($2), $3, $4, $5)
-			ON CONFLICT 
-				(external_uuid) DO NOTHING;
-		`
+		INSERT INTO
+			public.external_restaurant_informations
+			(external_uuid, "location", reference_link, updated_at, name)
+		VALUES
+			($1, ST_GeomFromText($2), $3, $4, $5)
+	`
 
 		_, err = db.Exec(stmt, id, fmt.Sprintf("POINT(%s %s)", x, y), placeUrl, currentTime, placeName)
 		if err != nil {
@@ -147,7 +104,7 @@ func main() {
 
 }
 
-func searchCusineByKeyWord(conf *config, keyword string) ([]interface{}, error) {
+func SearchCusineByKeyWord(conf *Config, keyword string) ([]interface{}, error) {
 	encodedKeyWord := url.QueryEscape(keyword)
 	url := fmt.Sprintf("https://dapi.kakao.com/v2/local/search/keyword.json?query=%s", encodedKeyWord)
 
