@@ -11,11 +11,11 @@ import (
 )
 
 var (
-	foodDataFile = "./resource/menu.csv"
+	foodDataFile = "menu.csv"
 	outputFile   = "food.json"
 )
 
-type Keyword struct {
+type Food struct {
 	Id       int      `json:"id"`
 	Name     string   `json:"name"`
 	Category []string `json:"category"`
@@ -23,7 +23,7 @@ type Keyword struct {
 }
 
 type Data struct {
-	Data     []Keyword `json:"data"`
+	Data     []Food `json:"data"`
 	Metadata struct {
 		Total int `json:"total"`
 	} `json:"meta"`

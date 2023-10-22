@@ -135,8 +135,6 @@ func main() {
 	    		(external_uuid, "location", reference_link, updated_at, name)
 	    	VALUES
 				($1, ST_GeomFromText($2), $3, $4, $5)
-			ON CONFLICT 
-				(external_uuid) DO NOTHING;
 		`
 
 		_, err = db.Exec(stmt, id, fmt.Sprintf("POINT(%s %s)", x, y), placeUrl, currentTime, placeName)
