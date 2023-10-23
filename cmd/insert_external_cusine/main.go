@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -11,8 +10,10 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
+	"github.com/Taehoya/go-utils/pq"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	"golang.org/x/oauth2/google"
@@ -22,41 +23,13 @@ import (
 type config struct {
 	kakaoAPIKey  string
 	googleAPIKey string
-	dbHost       string
-	dbPort       string
-	dbUser       string
-	dbPassword   string
-	dbName       string
 }
 
 func makeConfig() *config {
 	return &config{
 		kakaoAPIKey:  os.Getenv("KAKAO_API_KEY"),
 		googleAPIKey: os.Getenv("GOOGLE_API_KEY"),
-		dbHost:       os.Getenv("DB_HOST"),
-		dbPort:       os.Getenv("DB_PORT"),
-		dbUser:       os.Getenv("DB_USER"),
-		dbPassword:   os.Getenv("DB_PASSWORD"),
-		dbName:       os.Getenv("DB_NAME"),
 	}
-}
-
-func InitDB(conf *config) (*sql.DB, error) {
-	psqlInfo := fmt.Sprintf("host=%s port=%s user=%s "+
-		"password=%s dbname=%s sslmode=disable",
-		conf.dbHost, conf.dbPort, conf.dbUser, conf.dbPassword, conf.dbName)
-
-	db, err := sql.Open("postgres", psqlInfo)
-	if err != nil {
-		return nil, fmt.Errorf("failed to init db")
-	}
-
-	err = db.Ping()
-	if err != nil {
-		return nil, fmt.Errorf("database is not healthy")
-	}
-
-	return db, nil
 }
 
 var (
@@ -70,7 +43,7 @@ func main() {
 	}
 
 	conf := makeConfig()
-	db, err := InitDB(conf)
+	db, err := pq.InitDB()
 
 	if err != nil {
 		log.Fatalf("err: %v", err)
@@ -102,7 +75,8 @@ func main() {
 
 	index := -1
 	for _, row := range sheet.Rows {
-		keyword := fmt.Sprintf("%s %s %s", row[0].Value, row[1].Value, row[4].Value)
+		keyword := fmt.Sprintf("%s %s %s", row[0].Value, row[1].Value, row[2].Value)
+		// keyword := fmt.Sprintf("%s %s", row[3].Value, row[2].Value)
 		index++
 		cusines, err := searchCusineByKeyWord(conf, keyword)
 		if err != nil {
@@ -134,10 +108,35 @@ func main() {
 				public.external_restaurant_informations
 	    		(external_uuid, "location", reference_link, updated_at, name)
 	    	VALUES
-				($1, ST_GeomFromText($2), $3, $4, $5)
+				($1, ST_GeomFromText($2), $3, $4, $5);
 		`
 
 		_, err = db.Exec(stmt, id, fmt.Sprintf("POINT(%s %s)", x, y), placeUrl, currentTime, placeName)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		userId := 1
+		category := strings.Split(row[4].Value, ",")[0]
+		summary := ""
+		opnion := row[7].Value
+		keywords := strings.Split(row[5].Value, ",")
+		keywordsJSON := `{"` + strings.Join(keywords, `","`) + `"}`
+		price := row[6].Value
+		if err != nil {
+			fmt.Println("Error converting 'keywords' to JSON:", err)
+			return
+		}
+
+		stmt = `
+		INSERT INTO
+			public.restaurant_reviews
+			(user_id, category, summary, opinion, keywords, price, created_at, updated_at, external_restaurant_information_id)
+		VALUES
+			($1, $2, $3, $4, $5, $6, now(), now(), $7);
+		`
+
+		_, err = db.Exec(stmt, userId, category, summary, opnion, keywordsJSON, price, id)
 		if err != nil {
 			log.Fatal(err)
 		}

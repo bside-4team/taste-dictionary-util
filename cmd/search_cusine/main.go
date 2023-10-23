@@ -64,7 +64,8 @@ func main() {
 
 	index := -1
 	for _, row := range sheet.Rows {
-		keyword := fmt.Sprintf("%s %s %s", row[0].Value, row[1].Value, row[4].Value)
+		// keyword := fmt.Sprintf("%s %s %s", row[0].Value, row[1].Value, row[2].Value)
+		keyword := fmt.Sprintf("%s %s", row[3].Value, row[2].Value)
 		index++
 		cusines, err := searchCusineByKeyWord(conf, keyword)
 		if err != nil {
@@ -94,15 +95,15 @@ func main() {
 		x := cusineFieldMap["x"].(string)
 		y := cusineFieldMap["y"].(string)
 
-		sheet.Update(index, 7, placeName)
-		sheet.Update(index, 8, addressName)
-		sheet.Update(index, 9, id)
-		sheet.Update(index, 10, phone)
-		sheet.Update(index, 11, categoryName)
-		sheet.Update(index, 12, placeUrl)
-		sheet.Update(index, 13, roadAddressName)
-		sheet.Update(index, 14, x)
-		sheet.Update(index, 15, y)
+		sheet.Update(index, 8, placeName)
+		sheet.Update(index, 9, addressName)
+		sheet.Update(index, 10, id)
+		sheet.Update(index, 11, phone)
+		sheet.Update(index, 12, categoryName)
+		sheet.Update(index, 13, placeUrl)
+		sheet.Update(index, 14, roadAddressName)
+		sheet.Update(index, 15, x)
+		sheet.Update(index, 16, y)
 	}
 	err = sheet.Synchronize()
 	if err != nil {
