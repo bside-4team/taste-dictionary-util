@@ -103,17 +103,21 @@ func main() {
 		placeName := cusineFieldMap["place_name"].(string)
 		currentTime := time.Now()
 
+		// TODO: Seprate Insert external restaurant information and restaurant review
+		// Our Postgrsql does not support ON CONFLICT DO NOTHING and lastInsertedIt from result
 		stmt := `
 	    	INSERT INTO
 				public.external_restaurant_informations
 	    		(external_uuid, "location", reference_link, updated_at, name)
 	    	VALUES
-				($1, ST_GeomFromText($2), $3, $4, $5);
+				($1, ST_GeomFromText($2), $3, $4, $5)
+			RETURNING id;
 		`
-
-		_, err = db.Exec(stmt, id, fmt.Sprintf("POINT(%s %s)", x, y), placeUrl, currentTime, placeName)
+		var lastInsertedID int
+		err = db.QueryRow(stmt, id, fmt.Sprintf("POINT(%s %s)", x, y), placeUrl, currentTime, placeName).Scan(&lastInsertedID)
 		if err != nil {
-			log.Fatal(err)
+			log.Printf("err: %v", err)
+			continue
 		}
 
 		userId := 1
@@ -123,11 +127,6 @@ func main() {
 		keywords := strings.Split(row[5].Value, ",")
 		keywordsJSON := `{"` + strings.Join(keywords, `","`) + `"}`
 		price := row[6].Value
-		if err != nil {
-			fmt.Println("Error converting 'keywords' to JSON:", err)
-			return
-		}
-
 		stmt = `
 		INSERT INTO
 			public.restaurant_reviews
@@ -136,7 +135,7 @@ func main() {
 			($1, $2, $3, $4, $5, $6, now(), now(), $7);
 		`
 
-		_, err = db.Exec(stmt, userId, category, summary, opnion, keywordsJSON, price, id)
+		_, err = db.Exec(stmt, userId, category, summary, opnion, keywordsJSON, price, lastInsertedID)
 		if err != nil {
 			log.Fatal(err)
 		}
